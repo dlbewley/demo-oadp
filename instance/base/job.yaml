@@ -1,0 +1,92 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bucket-job
+  namespace: openshift-adp
+spec:
+  template:
+    spec:
+      dnsPolicy: ClusterFirst
+      restartPolicy: OnFailure
+      serviceAccount: bucket-job
+      serviceAccountName: bucket-job
+      terminationGracePeriodSeconds: 10
+      activeDeadlineSeconds: 300
+      backoffLimit: 6
+      containers:
+        - name: bucket-setup
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: 
+                name: bucket-job
+          command:
+            - /bin/bash
+            - -c
+            - |
+              AWS_ACCESS_KEY_ID=""
+              AWS_SECRET_ACCESS_KEY=""
+              PROJ=${NAMESPACE:-openshift-adp}
+              OBC=${OBJECTBUCKETCLAIM:-oadp}
+              DPA=${DATAPROTECTIONAPPLICATION:-velero-sample}
+              BSL=${BACKUPSTORAGELOCATION:-velero-sample-1}
+
+              # when successful DataProtectionApplication CR must be in a Ready state.
+
+              echo "Update OADP with bucket information"
+
+              while [[ -z "$AWS_ACCESS_KEY_ID" ]]; do
+                echo "Wait for objectbucketclaim $OBC in $PROJ to bind, and for a bucket to be created"
+                oc wait --for=jsonpath='{.status.phase}'=Bound obc/"$OBC"
+
+                echo "Retrieve credentials from $PROJ secret/$OBC"
+                AWS_ACCESS_KEY_ID=$(oc     extract secret/"$OBC" -n "$PROJ" --to=- --keys AWS_ACCESS_KEY_ID 2>/dev/null)
+                AWS_SECRET_ACCESS_KEY=$(oc extract secret/"$OBC" -n "$PROJ" --to=- --keys AWS_SECRET_ACCESS_KEY 2>/dev/null)
+                [[ -z "$AWS_ACCESS_KEY_ID" ]] && sleep 3
+              done;
+
+              echo "Retrieve bound bucket name from $PROJ obc/$OBC"
+              BUCKET_NAME=$(oc get objectbucketclaim/"$OBC" -n "$PROJ" --template={{.spec.bucketName}})
+
+              echo "Retrieve bound bucket endpoint from $PROJ cm/$OBC"
+              BUCKET_HOST=$(oc extract configmap/"$OBC"     -n "$PROJ" --to=- --keys BUCKET_HOST 2>/dev/null)
+              BUCKET_PORT=$(oc extract configmap/"$OBC"     -n "$PROJ" --to=- --keys BUCKET_PORT 2>/dev/null)
+
+              echo -n "Creating working dir "
+              workdir=`mktemp -d -t oadp.XXXXXX`
+              echo $workdir
+
+              # temp sabotage
+              echo "Placing credentials in $workdir/cloud"
+              cat <<EOF > "$workdir/cloud"
+              [default]
+              aws_access_key_id=$AWS_ACCESS_KEY_ID
+              aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+              EOF
+
+              echo "Updating $PROJ secret/$OBC with bucket credentials using $workdir/cloud"
+              oc set data secret/cloud-credentials --from-file="$workdir/cloud"
+              rm -rf "$workdir"
+
+              echo "Printing existing DataProtectionApplication $DPA"
+              echo "---"
+              oc get dpa/"$DPA" -n "$PROJ" -o yaml
+              echo "---"
+
+              echo "Updating $PROJ dpa/$DPA with bucket configuration"
+              PATCH='[
+                { "op": "replace", "path": "/spec/backupLocations/0/velero/objectStorage/bucket", "value": "'$BUCKET_NAME'"},
+                { "op": "replace", "path": "/spec/backupLocations/0/velero/config/s3Url", "value": "https://'$BUCKET_HOST':'$BUCKET_PORT'"}
+                ]'
+
+              oc patch dpa/"$DPA" -n "$PROJ" --type=json --patch="$PATCH"
+
+              echo "Waiting for $PROJ BackupStorageLocation/$BSL to become Available"
+              while [[ -z $PHASE || $PHASE == '<no value>' ]]; do
+                PHASE=$(oc get backupstoragelocations/velero-sample-1 --template={{.status.phase}})
+                echo " status.phase is $PHASE"
+                sleep 10
+              done;
+
+              oc wait --for=jsonpath='{.status.phase}'=Available backupstoragelocations/"$BSL" --timeout=180s

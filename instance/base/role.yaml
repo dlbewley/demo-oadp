@@ -1,0 +1,49 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: bucket-job
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - patch
+
+  - apiGroups:
+      - oadp.openshift.io
+    resources:
+      - dataprotectionapplications
+    verbs:
+      - get
+      - list
+      - patch
+
+  - apiGroups:
+      - objectbucket.io
+    resources:
+      - objectbucketclaims
+    verbs:
+      - get
+      - list
+
+  - apiGroups:
+      - velero.io
+    resources:
+      - backupstoragelocations
+    verbs:
+      - get
+      - list

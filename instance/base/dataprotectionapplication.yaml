@@ -1,0 +1,31 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: velero-sample
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - openshift 
+        - aws
+        - csi
+        - kubevirt
+    restic:
+      enable: true 
+  backupLocations:
+    - velero:
+        config:
+          profile: "default"
+          region: us-east-1
+          s3Url: https://s3.openshift-storage.svc/
+          insecureSkipTLSVerify: "true"
+          s3ForcePathStyle: "true"
+        provider: aws
+        default: true
+        credential:
+          key: cloud
+          name: cloud-credentials
+        objectStorage:
+          bucket: 'retrieve from objectbucketclaim'
+          prefix: velero

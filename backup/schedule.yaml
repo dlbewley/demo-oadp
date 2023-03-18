@@ -1,0 +1,18 @@
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: backup-demo
+  namespace: openshift-adp
+spec:
+  schedule: "0 4 * * *"
+  template:
+    hooks: {}
+    includedNamespaces:
+    - dale
+    - demo
+    includedResources:
+    - deployments
+    storageLocation: velero-sample-1
+    defaultVolumesToRestic: true 
+    ttl: 720h0m0s
