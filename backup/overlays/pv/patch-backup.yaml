@@ -1,0 +1,11 @@
+---
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: backup-demo
+spec:
+  includedResources:
+    - deployments
+    - configmaps
+    - secrets
+    - pvc
