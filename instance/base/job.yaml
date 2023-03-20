@@ -69,7 +69,7 @@ spec:
               oc set data secret/cloud-credentials --from-file="$workdir/cloud"
               rm -rf "$workdir"
 
-              echo "Printing existing DataProtectionApplication $DPA"
+              echo "Printing existing DataProtectionApplication/$DPA"
               echo "---"
               oc get dpa/"$DPA" -n "$PROJ" -o yaml
               echo "---"
