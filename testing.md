@@ -122,12 +122,7 @@ oc get bsl/velero-sample-1 -n openshift-adp -o json | jq '.spec.config.s3Url'
 "https://s3.openshift-storage.svc:443"
 ```
 
-* Create backup
-
-```bash
-oc apply -k backup/base
-kustomize build backup/base | kfilt -k backup
-```
+* Create backup including PVC
 
 ```bash
 kustomize build backup/overlays/pv
@@ -157,7 +152,7 @@ spec:
 ```
 
 ```bash
-oc apply -k backup/pv
+oc apply -k backup/overlays/pv
 ```
 
 * Check results
