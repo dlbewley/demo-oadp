@@ -4,7 +4,6 @@ metadata:
   name: backup-demo
   labels:
     velero.io/storage-location: default
-  namespace: openshift-adp
 spec:
   hooks: {}
   includedNamespaces:
