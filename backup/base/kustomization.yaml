@@ -6,4 +6,4 @@ namespace: openshift-adp
 
 resources:
   - backup.yaml
-  # - schedule.yaml
+  - schedule.yaml

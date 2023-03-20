@@ -4,14 +4,17 @@ kind: Schedule
 metadata:
   name: backup-demo
 spec:
-  schedule: "0 4 * * *"
+  schedule: "32 4 * * 1"
   template:
     hooks: {}
     includedNamespaces:
     - dale
     - demo
+    - static
     includedResources:
     - deployments
+    - configmaps
+    - secrets
     storageLocation: velero-sample-1
     defaultVolumesToRestic: true 
     ttl: 720h0m0s
